@@ -4,23 +4,29 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:archive/archive_io.dart';
-import 'package:file_picker/file_picker.dart' show PlatformFile;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'book.dart';
+import 'tv_storage.dart';
+
+const importReserveBytes = 64 * 1024 * 1024;
 
 class BookLibrary {
   final Directory root;
   final List<String> warnings = [];
   Future<void> _saving = Future.value();
-  BookLibrary(this.root);
+  final TvStorage storage;
+  Future<void> _importing = Future.value();
+  BookLibrary(this.root, {this.storage = const NativeTvStorage()});
 
   static Future<BookLibrary> open() async {
     final support = await getApplicationSupportDirectory();
     final root = Directory(p.join(support.path, 'books'));
     await root.create(recursive: true);
-    return BookLibrary(root);
+    final library = BookLibrary(root);
+    await library.recoverImports();
+    return library;
   }
 
   Future<List<ReaderBook>> books() async {
@@ -42,26 +48,70 @@ class BookLibrary {
     return result;
   }
 
-  Future<ReaderBook> importPackage(String path) async {
+  /// Only called at startup, before allowing any new import.
+  Future<void> recoverImports() async {
     final rootPath = root.path;
-    return Isolate.run(() => _importPackage(path, rootPath));
+    await Isolate.run(() async {
+      await for (final entry in Directory(rootPath).list(followLinks: false)) {
+        if (entry is Directory &&
+            p.basename(entry.path).startsWith('.import-')) {
+          await entry.delete(recursive: true);
+        }
+      }
+    });
+    await storage.recoverCache();
   }
 
-  Future<ReaderBook> importPickedPackage(PlatformFile selected) async {
-    final path = selected.path;
-    if (path != null) return importPackage(path);
-    // SAF content URIs are not filesystem paths. Stream the provider content;
-    // do not hold an audiobook-sized ZIP in memory or retain a transient URI.
-    final cache = await getTemporaryDirectory();
-    final staging = await cache.createTemp('reading-book-');
-    try {
-      final file = File(p.join(staging.path, 'import.abook'));
-      await selected.readAsByteStream().cast<List<int>>().pipe(
-        file.openWrite(),
+  Future<ReaderBook> importPackage(String path) {
+    final operation = _importing.then((_) => _importWithSpaceCheck(path));
+    _importing = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return operation;
+  }
+
+  Future<ReaderBook> _importWithSpaceCheck(String path) async {
+    if (Uri.tryParse(path)?.scheme == 'content') {
+      throw const FormatException(
+        'Choose this document through the system picker.',
       );
-      return await importPackage(file.path);
+    }
+    final requests = ReceivePort();
+    final rootPath = root.path;
+    final send = requests.sendPort;
+    // The worker waits at the storage boundary: validate ZIP metadata first,
+    // query current free space natively, then extract on the same isolate.
+    final worker = Isolate.run(_PackageImportJob(path, rootPath, send).run);
+    final checking = () async {
+      await for (final message in requests) {
+        final values = message as List;
+        final response = values[1] as SendPort;
+        try {
+          final available = await storage.freeBytes(rootPath);
+          response.send(
+            available >= (values[0] as int) + importReserveBytes
+                ? null
+                : 'Not enough storage to extract this book. Free space for the expanded book plus 64 MiB is required.',
+          );
+        } catch (error) {
+          response.send('Cannot check available storage: $error');
+        }
+      }
+    }();
+    try {
+      return await worker;
     } finally {
-      await staging.delete(recursive: true);
+      requests.close();
+      await checking;
+    }
+  }
+
+  Future<ReaderBook> importSource(TvImportSource source) async {
+    try {
+      return await importPackage(source.path);
+    } finally {
+      await storage.releaseSource(source);
     }
   }
 
@@ -91,7 +141,21 @@ class BookLibrary {
   }
 }
 
-Future<ReaderBook> _importPackage(String source, String root) async {
+// A method tear-off keeps the ReceivePort and native storage bridge out of the
+// worker's captured state. Only these three transferable values cross isolates.
+class _PackageImportJob {
+  final String source;
+  final String root;
+  final SendPort requests;
+  const _PackageImportJob(this.source, this.root, this.requests);
+  Future<ReaderBook> run() => _importPackage(source, root, requests);
+}
+
+Future<ReaderBook> _importPackage(
+  String source,
+  String root,
+  SendPort requests,
+) async {
   final staging = await Directory(root).createTemp('.import-');
   InputFileStream? input;
   try {
@@ -130,6 +194,14 @@ Future<ReaderBook> _importPackage(String source, String root) async {
           'Package must not contain device playback state.',
         );
       }
+    }
+    final response = ReceivePort();
+    try {
+      requests.send([total, response.sendPort]);
+      final error = await response.first;
+      if (error != null) throw FileSystemException(error as String);
+    } finally {
+      response.close();
     }
     for (final entry in archive) {
       if (!entry.isFile) continue;

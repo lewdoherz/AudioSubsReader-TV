@@ -1,26 +1,31 @@
 name: audiosubs_reader
-description: "An ebook-first audiobook reader with desktop preparation and Android playback."
+description: "Remote-first ebook and audiobook player for Android TV, including Android 6 ARMv7."
 publish_to: 'none'
-version: 0.5.0+5
+version: 1.0.0+1
 
 environment:
-  sdk: ^3.13.2
+  sdk: '>=3.8.1 <3.9.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  audioplayers: ^6.8.1
-  file_picker: ^12.2.0
-  path_provider: ^2.1.6
-  path: ^1.9.1
-  archive: ^4.5.2
-  scrollable_positioned_list: ^0.3.8
-  crypto: ^3.0.8
+  audioplayers: 6.5.1
+  audioplayers_android: 5.2.1+tv.1
+  path_provider: 2.1.5
+  path_provider_android: 2.2.17
+  path: 1.9.1
+  archive: 4.0.7
+  scrollable_positioned_list: 0.3.8
+
+# The API23 OEM start fix is versioned source, not an edit to the pub cache.
+dependency_overrides:
+  audioplayers_android:
+    path: third_party/audioplayers_android
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: 5.0.0
 
 flutter:
   uses-material-design: true

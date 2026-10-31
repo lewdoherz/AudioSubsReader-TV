@@ -1,15 +1,15 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'appearance.dart';
 import 'appearance_panel.dart';
 import 'book.dart';
 import 'library.dart';
-import 'preparation.dart';
 import 'reader.dart';
-import 'windows_terms.dart';
+import 'tv_import.dart';
+import 'tv_storage.dart';
 
 Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +19,6 @@ Future<void> main(List<String> arguments) async {
       File('${library.root.parent.path}/appearance.json'),
     );
     registerReaderFontLicenses();
-    if (Platform.isWindows && !await requestWindowsTermsAcceptance()) return;
     runApp(
       ReaderApp(
         library: library,
@@ -31,9 +30,7 @@ Future<void> main(List<String> arguments) async {
     runApp(
       MaterialApp(
         home: Scaffold(
-          body: Center(
-            child: SelectableText('Cannot start AudioSubs Reader: $error'),
-          ),
+          body: Center(child: Text('Cannot start AudioSubs Reader TV: $error')),
         ),
       ),
     );
@@ -55,11 +52,18 @@ class ReaderApp extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: appearance,
     builder: (context, _) => MaterialApp(
-      title: 'AudioSubs Reader',
+      title: 'AudioSubs Reader TV',
       debugShowCheckedModeBanner: false,
       theme: appearance.value.theme(Brightness.light),
       darkTheme: appearance.value.theme(Brightness.dark),
       themeMode: appearance.value.themeMode,
+      builder: (context, child) => Shortcuts(
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        },
+        child: child!,
+      ),
       home: LibraryScreen(
         library: library,
         appearance: appearance,
@@ -87,6 +91,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<ReaderBook> _books = [];
   bool _busy = true;
   String? _error;
+  final _openFocus = FocusNode(debugLabel: 'Open reading book');
+
+  @override
+  void dispose() {
+    _openFocus.dispose();
+    super.dispose();
+  }
+
+  void _focusOpen() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_busy) _openFocus.requestFocus();
+    });
+  }
 
   @override
   void initState() {
@@ -116,27 +133,92 @@ class _LibraryScreenState extends State<LibraryScreen> {
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+        _focusOpen();
+      }
     }
   }
 
   Future<void> _choosePackage() async {
+    final route = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Open reading book'),
+        content: SizedBox(
+          width: 640,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Choose a prepared .abook. Use the direction buttons and OK. Back cancels.',
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                autofocus: true,
+                onPressed: () => Navigator.pop(context, 'document'),
+                child: const Text('System document picker'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: () => Navigator.pop(context, 'download'),
+                child: const Text('Browse Download folder'),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Download browsing asks for storage access only when selected. If no system picker is installed, use Download.',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || route == null) {
+      _focusOpen();
+      return;
+    }
     try {
-      // Android document providers frequently label .abook as application/zip
-      // or application/octet-stream. Validate the actual package, not its MIME.
-      final result = await FilePicker.pickFile(
-        type: Platform.isAndroid ? FileType.any : FileType.custom,
-        allowedExtensions: Platform.isAndroid ? null : ['abook'],
-      );
-      if (result != null) {
-        await _import(() => widget.library.importPickedPackage(result));
+      if (route == 'document') {
+        await _import(() async {
+          final source = await widget.library.storage.pickDocument();
+          return source == null ? null : widget.library.importSource(source);
+        });
+      } else {
+        final allowed = await widget.library.storage
+            .requestDownloadPermission();
+        if (!mounted) return;
+        if (!allowed) {
+          setState(
+            () => _error =
+                'Download access was not granted. Try again to allow storage access, or use the system document picker.',
+          );
+          return;
+        }
+        final source = await Navigator.push<TvImportSource>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DownloadBrowser(storage: widget.library.storage),
+          ),
+        );
+        if (source != null && mounted) {
+          await _import(() => widget.library.importSource(source));
+        }
       }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
+    } finally {
+      _focusOpen();
     }
   }
 
-  Future<void> _import(Future<ReaderBook> Function() operation) async {
+  Future<void> _import(Future<ReaderBook?> Function() operation) async {
     setState(() {
       _busy = true;
       _error = null;
@@ -168,25 +250,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         ),
       );
+      _focusOpen();
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
-    }
-  }
-
-  Future<void> _prepare() async {
-    final output = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (_) => const PreparationScreen()),
-    );
-    if (output != null && mounted) {
-      await _import(() => widget.library.importPackage(output));
     }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('AudioSubs Reader'),
+      title: const Text('AudioSubs Reader TV'),
       actions: [
         IconButton(
           tooltip: 'Appearance',
@@ -197,8 +270,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
           tooltip: 'Open-source licences',
           onPressed: () => showLicensePage(
             context: context,
-            applicationName: 'AudioSubs Reader',
-            applicationVersion: '0.5.0',
+            applicationName: 'AudioSubs Reader TV',
+            applicationVersion: 'TV1.0.0+1',
           ),
           icon: const Icon(Icons.info_outline),
         ),
@@ -216,9 +289,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              Platform.isWindows
-                  ? 'Prepare an audiobook with its EPUB, or open a prepared book. The original book stays on the page while the narration guides your place.'
-                  : 'Open a book prepared on Windows. Audio, ebook formatting and timing travel together — no speech model needed on this device.',
+              'Open a prepared .abook from Download or a system document provider. Audio, ebook formatting and timing travel together — no speech model is needed on this TV.',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 24),
@@ -227,16 +298,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
               runSpacing: 12,
               children: [
                 FilledButton.icon(
+                  focusNode: _openFocus,
+                  autofocus: true,
                   onPressed: _busy ? null : _choosePackage,
                   icon: const Icon(Icons.file_open_outlined),
                   label: const Text('Open reading book'),
                 ),
-                if (Platform.isWindows)
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _prepare,
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text('Prepare on this PC'),
-                  ),
               ],
             ),
             if (_busy)
@@ -247,7 +314,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20),
-                child: SelectableText(
+                child: Text(
                   _error!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
@@ -268,24 +335,43 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
               ),
             for (final book in _books)
-              Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 20,
+                    ),
                   ),
-                  leading: const Icon(Icons.auto_stories_outlined, size: 36),
-                  title: Text(book.title),
-                  subtitle: Text(
-                    [
-                      if (book.author.isNotEmpty) book.author,
-                      '${book.tracks.length} audio ${book.tracks.length == 1 ? 'file' : 'files'}',
-                      '${book.alignment['matchedWords'] ?? book.cues.length} timed words',
-                    ].join(' · '),
+                  onPressed: _busy ? null : () => _read(book),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_stories_outlined, size: 36),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              book.title,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              [
+                                if (book.author.isNotEmpty) book.author,
+                                '${book.tracks.length} audio ${book.tracks.length == 1 ? 'file' : 'files'}',
+                                '${book.alignment['matchedWords'] ?? book.cues.length} timed words',
+                              ].join(' · '),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right),
+                    ],
                   ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _busy ? null : () => _read(book),
                 ),
               ),
             const SizedBox(height: 20),

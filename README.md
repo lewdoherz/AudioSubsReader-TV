@@ -1,170 +1,98 @@
-# AudioSubs Reader
+# AudioSubs Reader TV
 
-An independent Windows/Android application. The previous `audiosubs` project is not modified or required at runtime.
+Remote-first, ebook-first audiobook player for Android TV, including the 32-bit Android 6 Xiaomi xmen platform. Based on [AudioSubs Reader 0.5.0](https://github.com/lewdoherz/AudioSubsReader/releases/tag/v0.5.0); the Windows/mobile project and its published releases are separate and unchanged.
 
-The ebook is the displayed source of truth. Local speech recognition supplies word timestamps; conservative matching locates those words in the ebook without replacing its original spelling, punctuation or semantic formatting. The reader displays a continuous reflowable book, not subtitle rows.
+**Player only.** Import desktop-prepared `.abook` packages, read the original ebook formatting, and follow timed narration. No Python, transcription/model runtime, CUDA, translation, cloud processing, Google Play Services, background server, boot launcher or accessibility/device-admin service is included.
 
-Downloads: [GitHub Releases](https://github.com/lewdoherz/AudioSubsReader/releases). Windows packages are portable ZIPs; Android packages are player-only APKs. Speech models and prepared books are not included.
+## Identity and target
 
-## Workflow
+- Display name: **AudioSubs Reader TV**.
+- Application ID: `com.audiosubs.audiosubs_reader.tv`; coexists with `com.audiosubs.audiosubs_reader`.
+- Version: **1.0.0**, versionCode **1**.
+- Release target: **android-arm / armeabi-v7a**, effective minSDK **23**, compile/target SDK **35**.
+- Rendering: **Skia/OpenGL**, using the pinned engine's supported `EnableImpeller=false` manifest option. No forced 4K resolution or `largeHeap`.
+- Device verification and measured limitations: [VERIFICATION.md](VERIFICATION.md).
 
-1. **Windows:** choose **Prepare on this PC**, a DRM-free EPUB, and its audiobook files. Files are naturally sorted when added; use **Move earlier** to correct their order.
-2. Download a speech model explicitly, or enter an existing local CTranslate2/faster-whisper model directory. Start with **tiny**, **CPU**, **int8**. Select the spoken language or `auto`.
-3. Press **Create reading book** and choose an output folder. Preparation writes a new `.abook` file, with a numbered name if necessary; original inputs and existing packages are not overwritten.
-4. Press **Import and read**. The package contains the ebook text, illustrations, original audio, and timing, so it can be copied to another computer or Android device.
-5. **Android:** transfer the `.abook`, press **Open reading book**, and select it with the document picker. Android imports and plays prepared books only; it contains no Python, transcription worker, speech models, translation, or secondary subtitle controls.
+## Remote controls
 
-Playback includes play/pause, seeking, speed, track selection, ebook chapter navigation, automatic track advancement, and per-device resume positions. **Word**, **Phrase**, and **Sentence** choose the visual highlight range. Phrase/sentence ranges expand around a genuinely timed word; they are not separately measured speech boundaries.
+No mouse, touch, hardware keyboard or long-press is required.
 
-Following keeps the active word visible, including inside paragraphs longer than the screen. Manual scrolling pauses following without changing the audio position; **Resume following** returns to the narration. Unaligned intervals show no stale highlight. **Alignment details** reports matched recognized words and preparation warnings.
+| Context | Remote action |
+|---|---|
+| Library, dialogs, menus, controls | D-pad moves focus; OK activates; Back closes or returns. Focus is visibly outlined/tinted. |
+| Focused reading page | Up/Down scrolls manually and pauses following. Left selects Chapters; Right selects Play/Pause. OK selects Read page / Hide controls. |
+| Focused seek slider | Left/Right seeks in five-second increments; Up/Down leaves the slider. Direction keys elsewhere do not seek. |
+| Appearance font slider | Left/Right adjusts one size step; Up/Down leaves it. Separate minus/plus buttons are also available. |
+| Chapter/track dialog | Up/Down selects; OK opens; Back cancels. Long lists remain lazy. |
+| Fullscreen with hidden controls | OK or Left/Right reveals controls without activating a button. Menu also requests controls where delivered by the remote/firmware. |
+| Fullscreen controls visible | Focused controls stay visible. Activate **Read / Hide controls** to return to the page and hide chrome. |
+| Back in fullscreen | First exits fullscreen, retaining the reader. A subsequent Back saves progress and returns to the library. |
+| Home | Not intercepted. Backgrounding pauses playback; returning never auto-resumes it. |
 
-## Appearance and playback time
+Allow the loading indicator to finish when changing files. Playback actions are serialized. **Play/Pause**, previous/next file, track list, chapters, speed, whole-book/current-file clocks, ±15-second jumps across files, word/phrase/sentence highlighting and Resume following remain available.
 
-Open **Appearance** from the library or reader toolbar. Changes apply immediately and are saved on this device:
+Appearance retains light/dark/system themes; bundled serif/sans/mono fonts and original emphasis; **14–64** book sizes (default **28**); Standard/Wide/Full width; colored background/underline/text or no added color; independent bold; preset/custom colors. Exact RGB ±1/±16 controls avoid requiring a keyboard. Default reading width is Wide.
 
-- **System**, **Light**, or **Dark** theme.
-- System font, PT Serif, PT Sans, or IBM Plex Mono, with a **14–40** font-size range. Bundled fonts include bold and italic variants; ebook emphasis remains intact.
-- **Reading width:** **Standard** keeps the existing centered column and margins, **Wide** expands the column, and **Full width** uses the available window width with small edge padding. This applies in both windowed and fullscreen reading; narrow screens retain their existing padding.
-- **Highlight style:** Background, Underline, Text color, or No color. Color styles offer presets or a custom `#RRGGBB` color, with contrast adjustment where necessary.
-- **Bold spoken text:** an independent switch that combines with any color style. Choose No color for bold alone, or disable bold while retaining the chosen color. Ebook italics, underlining and heavier weights are preserved. Existing bold-only settings automatically become No color with bold enabled.
-- Word, phrase, or sentence highlight range.
-- Whole-book or current-file timeline.
+## Import and storage
 
-**Whole book** is the default clock: **Played** is the current position across all audio files, **Remaining** is time to the end, and **Total** is the complete audiobook duration. Seeking and ±15-second jumps cross file boundaries while retaining play/pause state and playback speed. After the last file finishes, the clock stays at the end until you replay or seek. The track indicator still identifies the current audio file. Choose **Current file** in the reader's timeline menu or Appearance to restore a file-local clock.
+1. Prepare a `.abook` with the separate Windows application. The format is unchanged.
+2. Copy it to the TV's **Download** folder or a subfolder using your chosen file-transfer method.
+3. Choose **Open reading book → Browse Download folder**. Allow Android6 storage access when explicitly requested. Navigate with D-pad and OK; Back ascends a folder, then cancels at Download.
+4. Alternatively choose **System document picker**. Content URIs are read through Android's `ContentResolver`, not converted into filesystem paths. If no provider exists, the app reports the Download alternative. Provider/Cx-specific proof limits are recorded in VERIFICATION.md.
 
-These are audiobook positions and recorded durations, not accumulated listening statistics or speed-adjusted estimates. If any track duration is unknown, the whole-book total is explicitly unavailable rather than an incorrect partial sum.
+Only the selected Download subtree is enumerated, on demand. No unrestricted background storage scanning, root, Shizuku, MANAGE_EXTERNAL_STORAGE or network server is required. Android6 describes READ_EXTERNAL_STORAGE broadly as photos/media/files; this is its legacy runtime permission, not an additional Android11 permission.
 
-## Fullscreen reading
+**Budget space before copying/importing:** Download already contains the compressed source; import adds the expanded book. A document provider also needs a temporary compressed copy while extracting. Actual free app-storage space is checked before copying and extraction, with a **64 MiB reserve**. Streaming copy uses a 64-KiB buffer; ZIP extraction runs off the UI thread using file streams. Source files are not overwritten or deleted. Failed/abandoned import staging is removed; existing books and per-book progress remain intact.
 
-In a reading book, open **More reader options** (`⋮`) → **Fullscreen**. The book fills the display with navigation, track details and playback controls hidden. Audio, highlighting and following continue normally.
+Unsafe paths, links, case-folding collisions, duplicate entries, invalid alignment, missing media and imported playback-state files remain rejected. The existing limits are 100,000 entries, 64 GiB declared expanded package size and 64 MiB manifest size; the TV's actual storage/RAM is much smaller. Prefer books that fit comfortably with the reserve. Do not use the numerical format limits as capacity estimates.
 
-- Click or tap the page to reveal controls temporarily. They hide again after about four seconds; revealing them does not resize or reposition the book viewport.
-- Menus, dialogs, active control gestures, keyboard focus and text selection keep revealed controls available while you use them. Accessible-navigation mode keeps controls visible instead of hiding essential actions.
-- **Windows:** **F11** toggles fullscreen and **Escape** exits it. The native window fills its current monitor without a title bar and restores its previous normal or maximized presentation on exit.
-- **Android:** **Back** first leaves fullscreen without closing the book. Swipe from a screen edge to reveal Android's system bars temporarily.
+On this old ADB implementation, replacing a larger file with a smaller one was observed to leave trailing bytes. Use a **new destination filename** when transferring a revised package, or remove only your own previous copy first. Byte-for-byte validation was used for the public-domain device fixture.
 
-Fullscreen is a reader-session mode, not a saved appearance setting. After leaving it, ordinary Back closes the reader and saves progress as before. Manual scrolling and paused playback remain unchanged when entering, revealing controls, or leaving fullscreen.
+## Reproducible scoped build (Windows x64)
 
-## Build and run
+Required externally: Git, PowerShell, curl, and an Android SDK containing platform **35**, build-tools **35.0.0**, NDK **28.2.13676358**, and platform-tools. Install/accept Android SDK components yourself if missing; scripts do not accept vendor terms on your behalf.
 
-Prerequisites: Flutter/Dart compatible with `pubspec.yaml`; Visual Studio C++ desktop tools for Windows; Python **3.12 x64** for preparation development/packaging; Android SDK/JDK for Android builds. The LGPL FFmpeg/PyAV builder downloads checksum-pinned MSYS2/build inputs into this project's ignored build cache; a stock GPL-enabled PyAV wheel is not substituted.
-
-```powershell
-flutter pub get
-powershell -ExecutionPolicy Bypass -File scripts/build_windows.ps1
-flutter run -d windows
-```
-
-The setup script creates this project's own `worker/.venv`. To choose a Python installation:
+From this repository:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/setup_worker.ps1 -Python C:\path\to\python.exe
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap_tv.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init_tv_signing.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_android.ps1 -Check
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_tv_apk.ps1 -Apk dist/1.0.0/AudioSubsReaderTV-1.0.0-android6-armeabi-v7a.apk
 ```
 
-Package the standalone Windows preparation worker and build the application:
+Pass `-AndroidSdk C:/path/to/sdk` to bootstrap/build/verification when needed. `build_android.ps1` uses `flutter build apk --release --no-pub --target-platform android-arm --split-per-abi`, never the global Flutter executable. It enforces `pubspec.lock`, optionally runs format/analysis/tests, verifies Android23 signing, and writes the named APK plus `SHA256SUMS.txt` into `dist/<version>/`.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build_windows.ps1
-```
+Pins are recorded in [toolchain.lock.json](toolchain.lock.json), Gradle files and `pubspec.lock`:
 
-Run `build/windows/x64/runner/Release/audiosubs_reader.exe`. Keep the **entire Release directory**, including `preparation_runtime`, DLLs and Flutter data. A packaged build does not require installed Python or the old app. Models are downloaded separately. Use `-SkipWorker` only when the packaged worker is already current. The first Windows launch presents the bundled third-party component terms; acknowledgement is stored locally and requested again if those terms change.
+| Component | Pin / decision |
+|---|---|
+| Flutter / Dart | **3.32.8 / 3.8.1**, framework `edada7c56edf4a183c1735310e123c7f923584f1`, engine `ef0cd000916d64fa0c5d09cc809fa7ad244a5767` |
+| Host Java | Temurin **17.0.17+10**, downloaded with a fixed official SHA256; Java/JVM bytecode target 17 |
+| Gradle / AGP / Kotlin | **8.12 / 8.7.3 / 2.1.0**; Gradle distribution checksum pinned |
+| Desugaring | `desugar_jdk_libs` **2.1.4** |
+| audioplayers | **6.5.1**, Dart >=3.6 / Flutter >=3.27 compatible |
+| Android audio implementation | Vendored **5.2.1+tv.1**, upstream minSDK19, pure Kotlin/Java; explicit native `MediaPlayer.start()` after playback-parameter setup |
+| path_provider / Android implementation | **2.1.5 / 2.2.17**, native minSDK21, no ABI-specific JNI payload |
+| archive / path / positioned list | **4.0.7 / 1.9.1 / 0.3.8**, compatible Dart constraints; file-backed ZIP handling retained |
+| file_picker | Removed. Native API23 document APIs plus the remote Download browser replace the incompatible modern plugin. |
 
-Build the player-only Android APK:
+Official compatibility evidence: [3.32.8 Android extension](https://github.com/flutter/flutter/blob/3.32.8/packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt), [engine API21 manifest](https://github.com/flutter/flutter/blob/3.32.8/engine/src/flutter/shell/platform/android/AndroidManifest.xml), [android-arm/ARMv7 mapping](https://github.com/flutter/flutter/blob/3.32.8/packages/flutter_tools/lib/src/build_info.dart), [supported renderer setting](https://github.com/flutter/flutter/blob/3.32.8/engine/src/flutter/shell/platform/android/io/flutter/embedding/engine/loader/FlutterLoader.java). Flutter3.35.7 was rejected after its official extension declared minSDK24. A lone ARMv7 JNI library in an otherwise ARM64 APK is not sufficient; verification checks complete ELF32 ARM `libapp.so` and `libflutter.so`.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build_android.ps1
-```
+SDK/JDK/pub caches live under ignored `.toolchains`. Flutter's Windows APPDATA-based configuration is scoped there so Android Studio's Java25 cannot override this JDK17. Gradle's cache is isolated by a hash of this checkout path under `%LOCALAPPDATA%/AudioSubsReaderTV/gradle-cache`, outside source indexing to avoid observed Windows immutable-workspace locks. No global toolchain is downgraded. Bootstrap corrects a literal `$git` typo in the upstream Windows wrapper's revision lookup; Android engine/compiler sources remain unchanged.
 
-Output: `build/app/outputs/flutter-apk/app-release.apk` for ARM64 and x86_64. The generated local Android release configuration uses the development signing key, not a production/store key. Application ID `com.audiosubs.audiosubs_reader` is separate from the old player.
+## Audio/lifecycle policy
 
-### CUDA on Windows
+One native audio-focus owner requests focus only on explicit Play. Loss, transient loss, duck requests, noisy output, window-focus loss and backgrounding pause/save without auto-resume. Seek and track advancement reuse the active session. Back/exit stops and releases playback. Returning from Home or standby requires explicit Play. There is no background service, automatic boot launch or promise of Xiaomi background reliability.
 
-An NVIDIA driver alone does not supply the libraries required by the [faster-whisper GPU backend](https://github.com/SYSTRAN/faster-whisper#gpu): **CUDA 12 cuBLAS and CUDA 12-compatible cuDNN 9**. A missing `cublas64_12.dll` is a runtime-library problem, not a damaged speech model.
+The vendored Android audio source is included with its original [MIT licence](third_party/audioplayers_android/LICENSE). `start()` explicitly starts the MediaPlayer after setting rate instead of depending solely on OEM playback-parameter side effects. The device smoke procedure checks advancing clocks and audible output, not just the Dart `playing` state.
 
-To build with a private GPU runtime:
+## Signing, updates and removal
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Cuda
-```
+`init_tv_signing.ps1` creates/reuses a private RSA3072 identity outside Git, normally `%USERPROFILE%/.audiosubs-reader-tv/`. Passwords are random, not printed, and saved with the keystore in that restricted directory. **Back up the whole directory securely.** Set `AUDIOSUBS_TV_SIGNING_PROPERTIES` to another private properties file if necessary. Never commit/upload signing material.
 
-`-Cuda` installs pinned NVIDIA wheels from `worker/requirements-cuda.txt` into this project's environment. Packaging includes their DLLs and licence metadata under `preparation_runtime/_internal/`. CPU-only environments do not install these large optional packages; once installed, subsequent packaging includes them automatically. For development without packaging, use `scripts/setup_worker.ps1 -Cuda`.
+Release builds require this identity; there is no debug-signing fallback. Both **v1/JAR** (Android6) and **v2** signatures are enabled. Apksigner's META-INF/version/service metadata warnings are retained in inspection output; the verified v2 signature covers the whole APK, while Android6 uses the standard v1 scheme. No store publication/signing is configured.
 
-The worker registers its private DLL directories and preloads cuBLAS/cuDNN before starting GPU inference. Search-path changes apply only to the worker process; no global PATH changes or unrelated Python installation are needed. Compatible system libraries on PATH or under `CUDA_PATH/bin` / `CUDNN_PATH/bin` remain supported. CPU inference does not initialize the CUDA loader.
+For updates, retain application ID, key and ARMv7 target, increase `pubspec.yaml` version/build number, and install over the existing TV package. Xiaomi may ask for individual installation confirmation; leave **Apply to all** unchecked unless you deliberately want to change that policy. Losing the key prevents in-place upgrades. Never uninstall just to work around signing without first accepting that local books/resume/settings will be deleted.
 
-Use **Device: cuda**, **Precision: float16** with a compatible NVIDIA GPU/driver. Missing or unloadable GPU libraries produce a setup error rather than silently switching to CPU. NVIDIA's component licences apply; review their redistribution terms before publishing GPU-enabled bundles.
-
-### Redistributing Windows builds
-
-`build_windows.ps1` collects native/Python/Flutter dependency notices and matching LGPL FFmpeg/PyAV build inputs before compiling. Runtime notices and component terms are under `preparation_runtime/_internal/THIRD-PARTY-LICENSES/`.
-
-Publish `dist/<version>/AudioSubsReader-<version>-ffmpeg-lgpl-source.zip` at the release URL recorded in that directory's manifest, alongside the Windows binary ZIP. It contains matching FFmpeg/PyAV source, patches, checksums, build configuration and rebuilding instructions. Shared FFmpeg libraries remain replaceable; no application-wide restriction overrides LGPL replacement/relinking rights. The collector's `unresolved_terms` identifies publisher review obligations; collecting notices is not legal approval or an application licence assignment.
-
-Windows executables are not Authenticode-signed. Android release builds currently use a development signing key, not a store-production key; neither package is a store release.
-
-## Preparation CLI
-
-```powershell
-worker\.venv\Scripts\python.exe worker\prepare.py --download-model tiny --model-directory C:\models
-worker\.venv\Scripts\python.exe worker\prepare.py --request request.json
-```
-
-The download above creates `C:\models\tiny`. A request contains:
-
-```json
-{
-  "ebook": "C:/books/title.epub",
-  "audio": ["C:/books/01.mp3", "C:/books/02.mp3"],
-  "output": "C:/books/title.abook",
-  "model": "C:/models/tiny",
-  "language": "en",
-  "device": "cpu",
-  "computeType": "int8"
-}
-```
-
-The worker emits UTF-8 JSONL progress, an explicit error with nonzero exit status, or a final `done` event. Inference uses local model files only. CUDA requires the private runtime described above or compatible system CUDA/cuDNN libraries, plus an NVIDIA driver; unsupported settings fail rather than silently changing devices.
-
-For existing word-level timing, optional `transcript` names a UTF-8 JSON file containing one array per audio track, in the same order. Each word is `{"word":"Example","start":0.1,"end":0.6}`, with seconds relative to its track. This bypasses speech recognition, not ebook alignment.
-
-## Format and storage
-
-`.abook` is a ZIP with schema-versioned `book.json`, relative `audio/` paths and `images/`. The manifest holds semantic blocks/inline runs, track durations, and word cues with track-local millisecond timestamps and block-local UTF-16 character offsets. No absolute Windows media paths travel to Android.
-
-Imports stream audio to app-owned storage off the UI isolate, validate referenced assets and cue ranges, and reject unsafe paths, symbolic links, duplicate paths and incomplete packages. A provider-only Android URI is streamed into a temporary local package first. Reimporting the same book ID preserves the existing local copy and progress. Keep enough storage for the package, expanded audio, and temporary import copy.
-
-Reading positions are stored beside each imported book, independently on each device; they are not synchronized between devices. Uninstalling/clearing Android app data removes its imported library and progress. Keep the original `.abook` elsewhere.
-
-## Boundaries
-
-- **DRM-free, reflowable EPUB** is the preparation format. Headings, paragraphs, bold/italic/underline, list items, quotations, line breaks and supported illustrations are retained. Safe SVG images are rasterized to PNG. Publisher stylesheets/fonts, exact page layout, complex tables and fixed-layout fidelity are not reproduced. Convert other ebook formats to DRM-free EPUB first; DRM removal is not provided.
-- Audio selection accepts MP3, M4B, M4A, WAV, FLAC, OGG and AAC. Preparation uses PyAV; playback uses native platform decoders, so recognition of an extension does not guarantee that a particular encoding will play. Native failures are displayed.
-- Alignment is conservative text matching against recognized speech, not a forced aligner. Ambiguous/repeated passages, narration additions, abridgements, different editions and recognition errors can leave gaps. Coverage measures the fraction of recognized words matched, not transcription accuracy or the fraction of the ebook narrated.
-- Audio decoding uses bounded **90-second chunks** rather than loading an entire audiobook waveform into memory. Chunk boundaries may lose words. The model and whole-book text/timing index still require memory.
-- EPUB limits: 20,000 entries, 128 MiB per expanded entry and 512 MiB total expanded content. Reader packages allow 100,000 entries, a 64 MiB manifest and 64 GiB expanded content.
-- Android playback pauses when the app enters the background. Background media service, lock-screen controls and durable background preparation are not implemented. Windows can continue playing while unfocused.
-- Windows debug runs currently emit a native-thread event-channel diagnostic from `audioplayers_windows` 4.4.1. It is not suppressed; treat it as an upstream stability risk.
-- Packaged Windows builds include collected third-party notices and publish corresponding LGPL source beside the binaries. Their component-specific redistribution terms still apply; this repository does not assign an application licence.
-
-## Checks
-
-```powershell
-flutter analyze lib test
-flutter test test
-worker\.venv\Scripts\python.exe -m unittest discover -s worker/tests
-```
-
-Runtime verification used real two-track narrated WAV audio and an EPUB with inline emphasis and a multi-screen paragraph. Source and standalone packaged workers produced portable books with 54 recognized words anchored to ebook text. Windows and an Android x86_64 emulator exercised native playback, visible-word following, manual-scroll/resume-follow, sentence highlighting, speed changes, automatic track advancement, and persisted resume. Physical ARM64 hardware was not exercised.
-
-The v0.2.0 native runs additionally exercised live dark mode, serif font/size changes, custom highlight-color validation and underlining, visible-word following after those changes, whole-book clocks, paused cross-file seeking/skipping, switching to a file-local clock, and persisted appearance/playback speed. The displayed reader and Appearance dialog/sheet were visually checked on both platforms.
-
-Native completion/replay checks on both platforms verified that the completed book clock remains at its final endpoint despite late decoder position resets, and that replay and subsequent cross-file seeking receive position updates normally.
-
-The v0.3.0 native runs exercised fullscreen while narration was playing, text-only rendering, unchanged book viewport during control reveal/hide, mouse/touch auto-hide, dialog hold/release, and manual-scroll/paused-state preservation. Windows checks compared real monitor/window rectangles and styles and verified exact normal-window and maximized restoration. Android checked native system-bar transitions and Back leaving fullscreen before normal reader close. Widget regressions cover display errors, first-Back behavior, stable overlays and accessible-navigation controls. Physical ARM64 devices and monitor/DPI topology changes were not exercised.
-
-The v0.4.0 PC run selected Standard, Wide and Full width through Appearance, verified the original margins could be restored, and checked full-width text in actual fullscreen. It also selected Bold through the UI, verified a visible bold spoken-word span without a color fill, and reopened saved preferences. Changing either setting kept the current word visible and left paused playback unchanged. Regression tests cover narrow-screen fitting, persisted choices, legacy appearance files, ebook formatting and existing heavier font weights.
-
-Windows preparation was also exercised through native EPUB, multi-audio and output-folder dialogs, invoking its bundled worker and importing the result. An Android release APK was separately exercised with the real document provider and observed playing highlighted text after automatic track advancement. Disposable fixtures and UI-driving scripts are not shipped. Permanent tests cover package safety, alignment ambiguities/omissions, Unicode ranges, formatting, contrast, atomic preference persistence, highlight boundaries and whole-book timeline boundaries.
-
-CUDA was verified on the RTX 5080 with driver 617.42, the local large-v3 model, and float16 inference. Earlier source/packaged/deployed runs used only Windows system directories on PATH with CUDA_PATH/CUDNN_PATH unset, demonstrating private-runtime loading. The final LGPL-runtime packaged worker also transcribed the two-track fixture and anchored all 54 recognized words. This short smoke did not transcribe the user's full audiobook.
-
-The v0.5.0 native PC run verified bold combined with background color, underline and text color, plus bold alone and color without bold. It also verified migration from the previous bold-only choice, saved combined settings, unchanged playback position and visible-word following. All 31 tests passed, covering light/dark contrast and preservation of ebook emphasis. The final Android APK was upgraded over v0.4.0 on an API 35 x86_64 emulator: old bold-only settings migrated correctly, real narration displayed bold text with a gold background, and both choices persisted after a process restart. Physical ARM64 hardware was not exercised.
+Safe recovery: Back out of the reader first to save; force-stop **only** `com.audiosubs.audiosubs_reader.tv` if needed, then reopen. Uninstall **AudioSubs Reader TV** through Settings or `adb -P 5038 -s <TV-endpoint> uninstall com.audiosubs.audiosubs_reader.tv` only when you intend to delete its private data. Download source packages and other apps are separate. Do not clear data, alter HOME defaults, disable the stock launcher/security/VPN services, root, flash, reboot or factory-reset as a repair step.

@@ -6,6 +6,8 @@ import 'package:audiosubs_reader/book.dart';
 import 'package:audiosubs_reader/library.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'tv_storage_fake.dart';
+
 Map<String, dynamic> manifest() => {
   'schemaVersion': 1,
   'id': 'test-book',
@@ -98,7 +100,7 @@ void main() {
       );
       addTearDown(() => temporary.delete(recursive: true));
       final root = await Directory('${temporary.path}/books').create();
-      final library = BookLibrary(root);
+      final library = BookLibrary(root, storage: TestTvStorage());
       final source = await package(temporary, manifest());
       final first = await library.importPackage(source.path);
       await library.saveProgress(
@@ -122,7 +124,7 @@ void main() {
       );
       addTearDown(() => temporary.delete(recursive: true));
       final root = await Directory('${temporary.path}/books').create();
-      final library = BookLibrary(root);
+      final library = BookLibrary(root, storage: TestTvStorage());
       final missing = await package(temporary, manifest(), withAudio: false);
       await expectLater(
         library.importPackage(missing.path),

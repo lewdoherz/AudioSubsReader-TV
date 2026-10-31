@@ -1,0 +1,32 @@
+{
+  "flutter": {
+    "version": "3.32.8",
+    "frameworkCommit": "edada7c56edf4a183c1735310e123c7f923584f1",
+    "engineCommit": "ef0cd000916d64fa0c5d09cc809fa7ad244a5767",
+    "dart": "3.8.1",
+    "source": "https://github.com/flutter/flutter/tree/3.32.8",
+    "hostOnlyPatch": "bootstrap_tv.ps1 corrects literal $git to git in Windows shared.bat revision lookup; engine/compiler unchanged"
+  },
+  "jdk": {
+    "distribution": "Eclipse Temurin",
+    "version": "17.0.17+10",
+    "platform": "windows-x64",
+    "sha256": "dcf0064efec7e515a5e3b56e7532f1a1c125510303c6c9e60af8878e3f7347fe"
+  },
+  "android": {
+    "gradle": "8.12",
+    "agp": "8.7.3",
+    "kotlin": "2.1.0",
+    "compileSdk": 35,
+    "targetSdk": 35,
+    "minSdk": 23,
+    "buildTools": "35.0.0",
+    "ndk": "28.2.13676358",
+    "javaBytecode": 17,
+    "desugarJdkLibs": "2.1.4",
+    "targetPlatform": "android-arm",
+    "abi": "armeabi-v7a",
+    "renderer": "Skia/OpenGL; EnableImpeller=false"
+  },
+  "dependencies": "Exact direct runtime/native-plugin versions in pubspec.yaml; all transitives and hashes in pubspec.lock"
+}

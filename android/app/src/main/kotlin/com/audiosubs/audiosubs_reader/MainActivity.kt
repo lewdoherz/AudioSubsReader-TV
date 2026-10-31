@@ -1,5 +1,6 @@
-package com.audiosubs.audiosubs_reader
+package com.audiosubs.audiosubs_reader.tv
 
+import android.content.Intent
 import android.os.Build
 import android.util.Log
 import android.view.View
@@ -15,6 +16,8 @@ class MainActivity : FlutterActivity() {
     private var fullscreenRequested = false
     private var normalPresentation: Presentation? = null
     private var pendingTransition: PendingTransition? = null
+    private var storageBridge: TvStorageBridge? = null
+    private var audioFocus: TvAudioFocus? = null
 
     private data class Presentation(
         val legacyVisibility: Int = 0,
@@ -24,6 +27,14 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        storageBridge = TvStorageBridge(this, MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.audiosubs.audiosubs_reader.tv/storage",
+        ))
+        audioFocus = TvAudioFocus(this, MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "audiosubs_reader/audio",
+        ))
         displayChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             "audiosubs_reader/display",
@@ -48,6 +59,10 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        storageBridge?.detach()
+        storageBridge = null
+        audioFocus?.detach()
+        audioFocus = null
         displayChannel?.setMethodCallHandler(null)
         displayChannel = null
         pendingTransition?.let { transition ->
@@ -72,13 +87,38 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         reapplyRequestedPresentation()
+        audioFocus?.onResume()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        audioFocus?.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             reapplyRequestedPresentation()
         }
+    }
+
+    override fun onPause() {
+        audioFocus?.onPause()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        audioFocus?.detach()
+        audioFocus = null
+        storageBridge?.detach()
+        storageBridge = null
+        super.onDestroy()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (storageBridge?.onActivityResult(requestCode, resultCode, data) == true) return
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (storageBridge?.onRequestPermissionsResult(requestCode, grantResults) == true) return
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     private fun setFullscreen(enabled: Boolean, result: MethodChannel.Result) {

@@ -38,8 +38,8 @@ class ReaderPreferences {
   const ReaderPreferences({
     this.themeMode = ThemeMode.system,
     this.font = ReaderFont.system,
-    this.fontSize = 19,
-    this.readingWidth = ReadingWidth.standard,
+    this.fontSize = 28,
+    this.readingWidth = ReadingWidth.wide,
     this.highlightStyle = HighlightStyle.background,
     this.boldHighlight = false,
     this.highlightArgb = 0xff80cbc4,
@@ -83,7 +83,7 @@ class ReaderPreferences {
       readingWidth: _enumValue(
         ReadingWidth.values,
         json['readingWidth'],
-        ReadingWidth.standard,
+        ReadingWidth.wide,
       ),
       highlightStyle: legacyBold
           ? HighlightStyle.none
@@ -190,7 +190,43 @@ class ReaderPreferences {
           : const Color(0xff171c1a),
     ),
     useMaterial3: true,
-    appBarTheme: const AppBarTheme(centerTitle: false),
+    visualDensity: VisualDensity.standard,
+    appBarTheme: const AppBarTheme(centerTitle: false, toolbarHeight: 64),
+    focusColor:
+        (brightness == Brightness.dark
+                ? const Color(0xffb2dfdb)
+                : const Color(0xff003c35))
+            .withValues(alpha: 0.16),
+    iconButtonTheme: IconButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        side: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.focused)
+              ? BorderSide(
+                  color: brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
+                  width: 3,
+                )
+              : const BorderSide(color: Colors.transparent, width: 3),
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+        side: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.focused)
+              ? BorderSide(
+                  color: brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
+                  width: 3,
+                )
+              : const BorderSide(color: Colors.transparent, width: 3),
+        ),
+      ),
+    ),
     inputDecorationTheme: const InputDecorationTheme(
       border: OutlineInputBorder(),
     ),
@@ -205,7 +241,7 @@ T _enumValue<T extends Enum>(List<T> values, Object? stored, T fallback) {
 }
 
 double _safeFontSize(Object? value) =>
-    value is num && value.isFinite ? value.toDouble().clamp(14.0, 40.0) : 19;
+    value is num && value.isFinite ? value.toDouble().clamp(14.0, 64.0) : 28;
 
 int _opaque(Object? value) => value is int && value >= 0 && value <= 0xffffffff
     ? 0xff000000 | (value & 0x00ffffff)

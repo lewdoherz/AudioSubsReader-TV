@@ -27,23 +27,25 @@ void main() {
           'timelineMode': 'elapsed',
           'readingWidth': 'future-width',
         });
-        expect(settings.fontSize, 40);
+        expect(settings.fontSize, 64);
         expect(settings.highlightArgb, 0xff123456);
         expect(settings.themeMode, ThemeMode.system);
         expect(settings.font, ReaderFont.system);
         expect(settings.highlightStyle, HighlightStyle.background);
         expect(settings.highlightRange, HighlightRangeMode.word);
         expect(settings.timelineMode, TimelineMode.book);
-        expect(settings.readingWidth, ReadingWidth.standard);
+        expect(settings.readingWidth, ReadingWidth.wide);
         for (final value in [null, '19', double.nan, double.infinity]) {
           expect(
-            ReaderPreferences.fromJson({'schemaVersion': 1, 'fontSize': value})
-                .fontSize,
-            19,
+            ReaderPreferences.fromJson({
+              'schemaVersion': 1,
+              'fontSize': value,
+            }).fontSize,
+            28,
           );
         }
         expect(settings.copyWith(fontSize: -20).fontSize, 14);
-        expect(settings.copyWith(fontSize: double.nan).fontSize, 19);
+        expect(settings.copyWith(fontSize: double.nan).fontSize, 28);
         for (final value in [-1, 0x100000000, 'red', 3.5]) {
           expect(
             ReaderPreferences.fromJson({
@@ -54,8 +56,10 @@ void main() {
           );
         }
         expect(
-          ReaderPreferences.fromJson({'schemaVersion': 999, 'fontSize': 40})
-              .toJson(),
+          ReaderPreferences.fromJson({
+            'schemaVersion': 999,
+            'fontSize': 40,
+          }).toJson(),
           const ReaderPreferences().toJson(),
         );
         expect(
@@ -63,7 +67,7 @@ void main() {
             fontSize: double.infinity,
             highlightArgb: 0,
           ).toJson()['fontSize'],
-          19,
+          28,
         );
         expect(
           const ReaderPreferences(highlightArgb: 0).toJson()['highlightArgb'],
@@ -113,48 +117,52 @@ void main() {
               );
             }
           }
-          final plain = ReaderPreferences(highlightStyle: style)
-              .applyHighlight(const TextStyle(), colors);
+          final plain = ReaderPreferences(
+            highlightStyle: style,
+          ).applyHighlight(const TextStyle(), colors);
           expect(plain.fontWeight, isNull);
           expect(plain.fontStyle, isNull);
         }
       }
     });
 
-    test('bold highlighting preserves ebook ink and formatting without adding color', () {
-      const preferences = ReaderPreferences(
-        highlightStyle: HighlightStyle.none,
-        boldHighlight: true,
-        highlightArgb: 0xffff0000,
-      );
-      const base = TextStyle(
-        color: Colors.blue,
-        fontWeight: FontWeight.normal,
-        fontStyle: FontStyle.italic,
-        decoration: TextDecoration.lineThrough,
-        fontSize: 23,
-      );
-      final result = preferences.applyHighlight(
-        base,
-        const ReaderPreferences().theme(Brightness.light).colorScheme,
-      );
-      expect(result.fontWeight, FontWeight.bold);
-      expect(result.fontStyle, FontStyle.italic);
-      expect(result.decoration, TextDecoration.lineThrough);
-      expect(result.color, Colors.blue);
-      expect(result.backgroundColor, isNull);
-      final painted = base.copyWith(
-        color: null,
-        foreground: Paint()..color = Colors.green,
-        fontWeight: FontWeight.w900,
-      );
-      final paintedResult = preferences.applyHighlight(
-        painted,
-        const ReaderPreferences().theme(Brightness.dark).colorScheme,
-      );
-      expect(paintedResult.foreground, same(painted.foreground));
-      expect(paintedResult.fontWeight, FontWeight.w900);
-    });
+    test(
+      'bold highlighting preserves ebook ink and formatting without adding color',
+      () {
+        const preferences = ReaderPreferences(
+          highlightStyle: HighlightStyle.none,
+          boldHighlight: true,
+          highlightArgb: 0xffff0000,
+        );
+        const base = TextStyle(
+          color: Colors.blue,
+          fontWeight: FontWeight.normal,
+          fontStyle: FontStyle.italic,
+          decoration: TextDecoration.lineThrough,
+          fontSize: 23,
+        );
+        final result = preferences.applyHighlight(
+          base,
+          const ReaderPreferences().theme(Brightness.light).colorScheme,
+        );
+        expect(result.fontWeight, FontWeight.bold);
+        expect(result.fontStyle, FontStyle.italic);
+        expect(result.decoration, TextDecoration.lineThrough);
+        expect(result.color, Colors.blue);
+        expect(result.backgroundColor, isNull);
+        final painted = base.copyWith(
+          color: null,
+          foreground: Paint()..color = Colors.green,
+          fontWeight: FontWeight.w900,
+        );
+        final paintedResult = preferences.applyHighlight(
+          painted,
+          const ReaderPreferences().theme(Brightness.dark).colorScheme,
+        );
+        expect(paintedResult.foreground, same(painted.foreground));
+        expect(paintedResult.fontWeight, FontWeight.w900);
+      },
+    );
 
     test(
       'bold combines with every color style without losing ebook emphasis',
@@ -325,7 +333,7 @@ void main() {
         );
         final controller = await AppearanceController.load(file);
         addTearDown(controller.dispose);
-        expect(controller.value.readingWidth, ReadingWidth.standard);
+        expect(controller.value.readingWidth, ReadingWidth.wide);
         expect(controller.value.font, ReaderFont.serif);
         for (final width in [
           ReadingWidth.wide,

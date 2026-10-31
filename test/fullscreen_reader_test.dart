@@ -86,10 +86,13 @@ void main() {
         for (var index = 0; index < 30; index++)
           BookBlock(
             id: 'paragraph-$index',
-            chapter: 'Chapter',
+            chapter: 'Chapter ${index ~/ 3 + 1}',
             kind: 'p',
             runs: [
               BookRun(
+                bold: index == 0,
+                italic: index == 0,
+                underline: index == 0,
                 text:
                     'Paragraph $index. The page remains readable while its controls come and go.',
               ),
@@ -104,8 +107,9 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(accessibleNavigation: accessibleNavigation),
+            data: MediaQuery.of(
+              context,
+            ).copyWith(accessibleNavigation: accessibleNavigation),
             child: child!,
           ),
           home: Builder(
@@ -166,6 +170,7 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      await choose(ReadingWidth.standard);
       final standard = tester.getSize(paragraph);
       await choose(ReadingWidth.wide);
       final wide = tester.getSize(paragraph);
@@ -268,5 +273,87 @@ void main() {
       expect(find.byType(AppBar), findsOneWidget);
       expect(tester.getRect(find.byType(SelectionArea)), normalViewport);
     }, accessibleNavigation: true);
+  });
+
+  testWidgets('remote page scrolls; Left and Right navigate without seeking', (
+    tester,
+  ) async {
+    await withReader(tester, () async {
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'Reading surface');
+      final before = tester.getTopLeft(find.byType(SelectionArea));
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(find.text('Resume following'), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(SelectionArea)), before);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'Chapters');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsOneWidget);
+      for (var i = 0; i < 8; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.byType(ReaderScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets(
+    'OK reveals controls without activating; explicit Read hides them',
+    (tester) async {
+      await withReader(tester, () async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+        await tester.pumpAndSettle();
+        expect(find.byType(AppBar), findsNothing);
+        await tester.sendKeyEvent(LogicalKeyboardKey.select);
+        await tester.pumpAndSettle();
+        expect(find.byType(AppBar), findsOneWidget);
+        expect(
+          FocusManager.instance.primaryFocus?.debugLabel,
+          'Read or hide controls',
+        );
+        await tester.pump(const Duration(seconds: 6));
+        expect(find.byType(AppBar), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.byType(AppBar), findsNothing);
+        expect(
+          FocusManager.instance.primaryFocus?.debugLabel,
+          'Reading surface',
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+        await tester.pumpAndSettle();
+        expect(find.byType(AppBar), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(ReaderScreen), findsOneWidget);
+        expect(find.byType(AppBar), findsOneWidget);
+      });
+    },
+  );
+
+  testWidgets('remote reader retains original run emphasis', (tester) async {
+    await withReader(tester, () async {
+      final paragraph = tester.widget<Text>(
+        find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is Text &&
+                  (widget.textSpan?.toPlainText().startsWith('Paragraph 0.') ??
+                      false),
+            )
+            .first,
+      );
+      final span =
+          (paragraph.textSpan! as TextSpan).children!.first as TextSpan;
+      expect(span.style!.fontWeight, FontWeight.bold);
+      expect(span.style!.fontStyle, FontStyle.italic);
+      expect(span.style!.decoration, TextDecoration.underline);
+    });
   });
 }

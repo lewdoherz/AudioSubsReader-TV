@@ -87,9 +87,9 @@ class BookBlock {
       id: _string(json['id']),
       chapter: _string(json['chapter']),
       kind: kind,
-      runs: _list(json['runs'])
-          .map((run) => BookRun.fromJson(_object(run)))
-          .toList(),
+      runs: _list(
+        json['runs'],
+      ).map((run) => BookRun.fromJson(_object(run))).toList(),
       image: json['image'] == null
           ? null
           : safeBookPath(_string(json['image'])),
@@ -159,15 +159,15 @@ class ReaderBook {
       throw const FormatException('Invalid book ID.');
     }
     safeBookPath(id);
-    final blocks = _list(json['blocks'])
-        .map((value) => BookBlock.fromJson(_object(value)))
-        .toList();
-    final tracks = _list(json['tracks'])
-        .map((value) => AudioTrack.fromJson(_object(value)))
-        .toList();
-    final cues = _list(json['cues'])
-        .map((value) => BookCue.fromJson(_object(value)))
-        .toList();
+    final blocks = _list(
+      json['blocks'],
+    ).map((value) => BookBlock.fromJson(_object(value))).toList();
+    final tracks = _list(
+      json['tracks'],
+    ).map((value) => AudioTrack.fromJson(_object(value))).toList();
+    final cues = _list(
+      json['cues'],
+    ).map((value) => BookCue.fromJson(_object(value))).toList();
     if (blocks.isEmpty || tracks.isEmpty) {
       throw const FormatException('Book has no text or audio.');
     }

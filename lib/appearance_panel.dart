@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'appearance.dart';
+import 'tv_focus.dart';
 
 Future<void> showAppearancePanel(
   BuildContext context,
@@ -29,7 +30,7 @@ Future<void> showAppearancePanel(
       builder: (context) => Dialog(
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: 560,
+            maxWidth: 680,
             maxHeight: MediaQuery.sizeOf(context).height * 0.9,
           ),
           child: _AppearancePanel(controller: controller),
@@ -154,16 +155,49 @@ class _AppearancePanelState extends State<_AppearancePanel> {
           runSpacing: 4,
           children: [
             for (final choice in choices.entries)
-              ChoiceChip(
-                label: Text(choice.value),
-                selected: selected == choice.key,
-                onSelected: (_) => onSelected(choice.key),
+              TvFocusFrame(
+                child: ChoiceChip(
+                  label: Text(choice.value),
+                  selected: selected == choice.key,
+                  onSelected: (_) => onSelected(choice.key),
+                ),
               ),
           ],
         ),
       ],
     ),
   );
+
+  Widget _colorChannel(String label, int shift) {
+    final preferences = widget.controller.value;
+    final value = (preferences.highlightArgb >> shift) & 0xff;
+    void adjust(int delta) {
+      final next = (value + delta).clamp(0, 255);
+      _change(
+        preferences.copyWith(
+          highlightArgb:
+              (preferences.highlightArgb & ~(0xff << shift)) | (next << shift),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        SizedBox(width: 84, child: Text('$label $value')),
+        for (final delta in const [-16, -1, 1, 16])
+          Expanded(
+            child: TvFocusFrame(
+              child: TextButton(
+                onPressed: value + delta < 0 || value + delta > 255
+                    ? null
+                    : () => adjust(delta),
+                child: Text(delta > 0 ? '+$delta' : '$delta'),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +222,7 @@ class _AppearancePanelState extends State<_AppearancePanel> {
                 child: Text('Appearance', style: theme.textTheme.titleLarge),
               ),
               IconButton(
+                autofocus: true,
                 tooltip: 'Close appearance',
                 onPressed: _close,
                 icon: const Icon(Icons.close),
@@ -201,29 +236,76 @@ class _AppearancePanelState extends State<_AppearancePanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _choices('Theme', preferences.themeMode, const {
-                  ThemeMode.system: 'System',
-                  ThemeMode.light: 'Light',
-                  ThemeMode.dark: 'Dark',
-                }, (value) => _change(preferences.copyWith(themeMode: value))),
-                _choices('Book font', preferences.font, const {
-                  ReaderFont.system: 'System',
-                  ReaderFont.serif: 'Serif',
-                  ReaderFont.sans: 'Sans',
-                  ReaderFont.mono: 'Mono',
-                }, (value) => _change(preferences.copyWith(font: value))),
+                _choices(
+                  'Theme',
+                  preferences.themeMode,
+                  const {
+                    ThemeMode.system: 'System',
+                    ThemeMode.light: 'Light',
+                    ThemeMode.dark: 'Dark',
+                  },
+                  (value) => _change(preferences.copyWith(themeMode: value)),
+                ),
+                _choices(
+                  'Book font',
+                  preferences.font,
+                  const {
+                    ReaderFont.system: 'System',
+                    ReaderFont.serif: 'Serif',
+                    ReaderFont.sans: 'Sans',
+                    ReaderFont.mono: 'Mono',
+                  },
+                  (value) => _change(preferences.copyWith(font: value)),
+                ),
                 Text(
                   'Book size · ${preferences.fontSize.round()} px',
                   style: theme.textTheme.titleSmall,
                 ),
-                Slider(
-                  value: preferences.fontSize,
-                  min: 14,
-                  max: 40,
-                  divisions: 26,
-                  label: '${preferences.fontSize.round()} px',
-                  onChanged: (value) =>
-                      _change(preferences.copyWith(fontSize: value)),
+                Row(
+                  children: [
+                    TvFocusFrame(
+                      child: IconButton(
+                        tooltip: 'Decrease book size',
+                        onPressed: preferences.fontSize > 14
+                            ? () => _change(
+                                preferences.copyWith(
+                                  fontSize: preferences.fontSize - 1,
+                                ),
+                              )
+                            : null,
+                        icon: const Icon(Icons.remove),
+                      ),
+                    ),
+                    Expanded(
+                      child: TvFocusFrame(
+                        child: TvRemoteSlider(
+                          step: 1,
+                          slider: Slider(
+                            value: preferences.fontSize,
+                            min: 14,
+                            max: 64,
+                            divisions: 50,
+                            label: '${preferences.fontSize.round()} px',
+                            onChanged: (value) =>
+                                _change(preferences.copyWith(fontSize: value)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    TvFocusFrame(
+                      child: IconButton(
+                        tooltip: 'Increase book size',
+                        onPressed: preferences.fontSize < 64
+                            ? () => _change(
+                                preferences.copyWith(
+                                  fontSize: preferences.fontSize + 1,
+                                ),
+                              )
+                            : null,
+                        icon: const Icon(Icons.add),
+                      ),
+                    ),
+                  ],
                 ),
                 _choices(
                   'Reading width',
@@ -247,12 +329,14 @@ class _AppearancePanelState extends State<_AppearancePanel> {
                   (value) =>
                       _change(preferences.copyWith(highlightStyle: value)),
                 ),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Bold spoken text'),
-                  value: preferences.boldHighlight,
-                  onChanged: (value) =>
-                      _change(preferences.copyWith(boldHighlight: value)),
+                TvFocusFrame(
+                  child: SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Bold spoken text'),
+                    value: preferences.boldHighlight,
+                    onChanged: (value) =>
+                        _change(preferences.copyWith(boldHighlight: value)),
+                  ),
                 ),
                 _choices(
                   'Highlight range',
@@ -284,27 +368,31 @@ class _AppearancePanelState extends State<_AppearancePanel> {
                           label: '${entry.value} highlight',
                           selected: preferences.highlightArgb == entry.key,
                           button: true,
-                          child: Tooltip(
-                            message: entry.value,
-                            child: InkWell(
-                              onTap: () => _change(
-                                preferences.copyWith(highlightArgb: entry.key),
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: Color(entry.key),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: colors.onSurface),
+                          child: TvFocusFrame(
+                            child: Tooltip(
+                              message: entry.value,
+                              child: InkWell(
+                                onTap: () => _change(
+                                  preferences.copyWith(
+                                    highlightArgb: entry.key,
+                                  ),
                                 ),
-                                child: preferences.highlightArgb == entry.key
-                                    ? const Icon(
-                                        Icons.check,
-                                        color: Colors.black,
-                                      )
-                                    : null,
+                                borderRadius: BorderRadius.circular(24),
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: Color(entry.key),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: colors.onSurface),
+                                  ),
+                                  child: preferences.highlightArgb == entry.key
+                                      ? const Icon(
+                                          Icons.check,
+                                          color: Colors.black,
+                                        )
+                                      : null,
+                                ),
                               ),
                             ),
                           ),
@@ -330,6 +418,11 @@ class _AppearancePanelState extends State<_AppearancePanel> {
                     ),
                     onSubmitted: (_) => _applyCustomColor(),
                   ),
+                  const SizedBox(height: 12),
+                  const Text('Custom color with remote · RGB 0–255'),
+                  _colorChannel('Red', 16),
+                  _colorChannel('Green', 8),
+                  _colorChannel('Blue', 0),
                   const SizedBox(height: 8),
                   Text(
                     'Text and underline colors adjust for readable contrast.',
@@ -399,6 +492,13 @@ class _AppearancePanelState extends State<_AppearancePanel> {
                         : 'Changes apply live and save automatically.',
                     style: theme.textTheme.bodySmall,
                   ),
+                TvFocusFrame(
+                  child: TextButton.icon(
+                    onPressed: _close,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Done'),
+                  ),
+                ),
               ],
             ),
           ),

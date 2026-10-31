@@ -43,17 +43,21 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 # Widget Preview related
 .widget_preview/
 
-# Local speech runtime, models and prepared media.
-worker/.venv/
-worker/models/
-worker/runtime/
-worker/.package-build/
-worker/build/
+# Local release assets and prepared media.
 dist/
 __pycache__/
 *.abook
 .smoke/
+
+# TV-local SDKs, signing material and device verification artifacts.
+.toolchains/
+.verification/
+*.jks
+*.keystore
+*.p12
+*signing.properties
